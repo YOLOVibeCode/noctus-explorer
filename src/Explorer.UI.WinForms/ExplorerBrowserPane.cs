@@ -6,18 +6,30 @@ using Vanara.Windows.Shell;
 namespace NoctusExplorer.UI.WinForms;
 
 /// <summary>
-/// Hosts a single IExplorerBrowser COM instance via Vanara.
+/// Hosts a single Vanara ExplorerBrowser control (which wraps IExplorerBrowser COM).
+/// The ExplorerBrowser is a WinForms Control — we embed it as a child.
 /// Implements IPaneView so the rest of the app can drive it through the contract.
 /// </summary>
 public sealed class ExplorerBrowserPane : UserControl, IPaneView
 {
-    private ExplorerBrowser? _browser;
+    private readonly ExplorerBrowser _browser;
     private PathRef _currentLocation;
 
     public ExplorerBrowserPane(PathRef initialLocation)
     {
         _currentLocation = initialLocation;
         Dock = DockStyle.Fill;
+
+        // ExplorerBrowser is a WinForms Control — add it as a child
+        _browser = new ExplorerBrowser
+        {
+            Dock = DockStyle.Fill,
+        };
+
+        // Wire navigation events
+        _browser.Navigated += OnBrowserNavigated;
+
+        Controls.Add(_browser);
     }
 
     // IPaneView
@@ -30,31 +42,7 @@ public sealed class ExplorerBrowserPane : UserControl, IPaneView
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        if (_browser is not null) return;
-
-        _browser = new ExplorerBrowser();
-        _browser.ContentFlags =
-            ExplorerBrowserContentSectionOptions.NoWebView |
-            ExplorerBrowserContentSectionOptions.NoHeaderInAllViews;
-        _browser.NavigationFlags = ExplorerBrowserNavigateOptions.ShowFrames;
-
-        _browser.Initialize(Handle, ClientRectangle);
-
-        // Wire navigation events
-        _browser.Navigated += (_, args) =>
-        {
-            if (args.NewLocation is ShellItem item)
-            {
-                var path = item.FileSystemPath ?? item.GetDisplayName(ShellItemDisplayString.DesktopAbsoluteParsing);
-                if (path is not null)
-                {
-                    _currentLocation = new PathRef(path, isDirectory: true);
-                    NavigationCompleted?.Invoke(this, new NavigationEventArgs { Location = _currentLocation });
-                }
-            }
-        };
-
-        // Navigate to initial location
+        // Navigate to initial location once the handle exists
         NavigateToPath(_currentLocation);
     }
 
@@ -64,24 +52,23 @@ public sealed class ExplorerBrowserPane : UserControl, IPaneView
         return Task.CompletedTask;
     }
 
-    public void Refresh()
+    public new void Refresh()
     {
-        // Re-navigate to current location to refresh
         NavigateToPath(_currentLocation);
     }
 
     void IPaneView.Focus()
     {
-        base.Focus();
+        _browser.Focus();
     }
 
     private void NavigateToPath(PathRef target)
     {
-        if (_browser is null) return;
+        if (!IsHandleCreated) return;
 
         try
         {
-            using var item = ShellItem.Open(target.FullPath);
+            var item = ShellItem.Open(target.FullPath);
             _browser.Navigate(item);
             _currentLocation = target;
         }
@@ -91,12 +78,33 @@ public sealed class ExplorerBrowserPane : UserControl, IPaneView
         }
     }
 
-    public new void Dispose()
+    private void OnBrowserNavigated(object? sender, ExplorerBrowser.NavigatedEventArgs args)
     {
-        _browser?.Dispose();
-        _browser = null;
-        base.Dispose();
+        try
+        {
+            var location = args.NewLocation;
+            var path = location.FileSystemPath
+                ?? location.GetDisplayName(ShellItemDisplayString.DesktopAbsoluteParsing);
+
+            if (path is not null)
+            {
+                _currentLocation = new PathRef(path, isDirectory: true);
+                NavigationCompleted?.Invoke(this, new NavigationEventArgs { Location = _currentLocation });
+            }
+        }
+        catch
+        {
+            // Ignore navigation event errors for virtual shell locations
+        }
     }
 
-    void IDisposable.Dispose() => Dispose();
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _browser.Navigated -= OnBrowserNavigated;
+            _browser.Dispose();
+        }
+        base.Dispose(disposing);
+    }
 }

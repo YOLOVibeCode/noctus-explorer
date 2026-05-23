@@ -1,59 +1,34 @@
-using Vanara.PInvoke;
 using Vanara.Windows.Forms;
 using Vanara.Windows.Shell;
 
 namespace ExplorerSpike;
 
 /// <summary>
-/// A UserControl that hosts a single IExplorerBrowser COM instance.
-/// This is the real Windows Explorer view — not a reimplementation.
-///
-/// The Vanara library's ExplorerBrowser class handles the COM lifecycle:
-///   - CoCreateInstance of CLSID_ExplorerBrowser
-///   - Initialize with the control's HWND
-///   - BrowseToIDList / BrowseToObject for navigation
-///   - IExplorerBrowserEvents for navigation/selection callbacks
-///   - Proper COM release on disposal
+/// A UserControl hosting the Vanara ExplorerBrowser control
+/// (wraps IExplorerBrowser COM — the real Windows Explorer view).
 /// </summary>
 public class ExplorerBrowserPane : UserControl
 {
-    private ExplorerBrowser? _browser;
+    private readonly ExplorerBrowser _browser;
+    private string? _pendingPath;
 
     public ExplorerBrowserPane()
     {
-        // The ExplorerBrowser is created on first handle creation
+        _browser = new ExplorerBrowser { Dock = DockStyle.Fill };
+        Controls.Add(_browser);
     }
 
-    protected override void OnHandleCreated(EventArgs e)
-    {
-        base.OnHandleCreated(e);
-
-        if (_browser is not null) return;
-
-        _browser = new ExplorerBrowser();
-
-        // Configure before initializing
-        _browser.ContentFlags =
-            ExplorerBrowserContentSectionOptions.NoWebView |
-            ExplorerBrowserContentSectionOptions.NoHeaderInAllViews;
-
-        _browser.NavigationFlags =
-            ExplorerBrowserNavigateOptions.ShowFrames;
-
-        // Initialize the browser inside this control's window
-        _browser.Initialize(Handle, ClientRectangle);
-    }
-
-    /// <summary>
-    /// Navigate to a filesystem path.
-    /// </summary>
     public void Navigate(string path)
     {
-        if (_browser is null) return;
+        if (!IsHandleCreated)
+        {
+            _pendingPath = path;
+            return;
+        }
 
         try
         {
-            using var item = ShellItem.Open(path);
+            var item = ShellItem.Open(path);
             _browser.Navigate(item);
         }
         catch (Exception ex)
@@ -62,28 +37,19 @@ public class ExplorerBrowserPane : UserControl
         }
     }
 
-    /// <summary>
-    /// Navigate to a ShellItem (for special folders, virtual items).
-    /// </summary>
-    public void Navigate(ShellItem item)
+    protected override void OnHandleCreated(EventArgs e)
     {
-        _browser?.Navigate(item);
-    }
-
-    protected override void OnSizeChanged(EventArgs e)
-    {
-        base.OnSizeChanged(e);
-        // The Vanara ExplorerBrowser handles resize internally
-        // if it was initialized with the control's handle
+        base.OnHandleCreated(e);
+        if (_pendingPath is not null)
+        {
+            Navigate(_pendingPath);
+            _pendingPath = null;
+        }
     }
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            _browser?.Dispose();
-            _browser = null;
-        }
+        if (disposing) _browser.Dispose();
         base.Dispose(disposing);
     }
 }
