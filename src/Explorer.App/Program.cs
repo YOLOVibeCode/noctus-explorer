@@ -39,7 +39,11 @@ static class Program
         services.AddSingleton<MainViewModel>();
 
         // UI
-        services.AddTransient<MainForm>();
+        services.AddTransient<MainForm>(sp => new MainForm(
+            sp.GetRequiredService<MainViewModel>(),
+            sp.GetRequiredService<IShellService>(),
+            sp.GetRequiredService<IFileOperations>()
+        ));
 
         var provider = services.BuildServiceProvider();
 
