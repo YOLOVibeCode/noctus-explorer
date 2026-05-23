@@ -14,12 +14,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.x'
+          dotnet-version: '10.x'
+          dotnet-quality: 'preview'
       - run: dotnet test tests/Explorer.Core.Tests/Explorer.Core.Tests.csproj --verbosity normal
 
   test-swift:
     name: Swift Core Tests
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - run: cd macos && swift test
@@ -34,7 +35,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.x'
+          dotnet-version: '10.x'
+          dotnet-quality: 'preview'
       - name: Publish
         run: |
           dotnet publish src/Explorer.App/Explorer.App.csproj `
@@ -52,7 +54,7 @@ jobs:
 
   build-macos:
     name: Build macOS
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - run: cd macos && swift build -c release
