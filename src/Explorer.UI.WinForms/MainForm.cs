@@ -16,6 +16,7 @@ public sealed class MainForm : Form
     private readonly IFileOperations _fileOps;
 
     private AddressBarControl _addressBar = null!;
+    private BookmarkBarControl _bookmarkBar = null!;
     private TabbedPaneControl _leftPane = null!;
     private TabbedPaneControl _rightPane = null!;
     private SplitContainer _splitContainer = null!;
@@ -167,8 +168,13 @@ public sealed class MainForm : Form
         _splitContainer.SplitterMoved += (_, _) => ResizeStatusBars();
         _statusPanel.Resize += (_, _) => ResizeStatusBars();
 
-        // Order: status panel (bottom), address bar (top), split container (fill)
+        // Bookmark bar
+        _bookmarkBar = new BookmarkBarControl(_vm.BookmarkStore);
+        _bookmarkBar.BookmarkClicked += (_, path) => ActivePane.NavigateActiveTab(path);
+
+        // Order: status panel (bottom), address bar (top), bookmark bar, split container (fill)
         Controls.Add(_splitContainer);
+        Controls.Add(_bookmarkBar);
         Controls.Add(_addressBar);
         Controls.Add(_statusPanel);
 
@@ -258,6 +264,14 @@ public sealed class MainForm : Form
             _leftStatusBar.Width = (int)(_statusPanel.Width * ratio);
             _rightStatusBar.Width = _statusPanel.Width - _leftStatusBar.Width;
         }
+    }
+
+    // MARK: - Command Palette
+
+    private void ShowCommandPalette()
+    {
+        using var dialog = new CommandPaletteDialog(_vm.CommandRegistry, _vm.KeyBindingResolver);
+        dialog.ShowDialog(this);
     }
 
     // MARK: - Tab management
@@ -375,6 +389,9 @@ public sealed class MainForm : Form
                 return true;
             case Keys.Control | Keys.R:
                 ActivePane.RefreshActiveTab();
+                return true;
+            case Keys.Control | Keys.Shift | Keys.P:
+                ShowCommandPalette();
                 return true;
         }
 
