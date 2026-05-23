@@ -16,16 +16,16 @@ public sealed class MainForm : Form
     private readonly IFileOperations _fileOps;
 
     private AddressBarControl _addressBar = null!;
-    private ExplorerBrowserPane _leftPane = null!;
-    private ExplorerBrowserPane _rightPane = null!;
+    private TabbedPaneControl _leftPane = null!;
+    private TabbedPaneControl _rightPane = null!;
     private SplitContainer _splitContainer = null!;
     private StatusBarControl _leftStatusBar = null!;
     private StatusBarControl _rightStatusBar = null!;
     private Panel _statusPanel = null!;
     private MenuStrip _menuStrip = null!;
 
-    private ExplorerBrowserPane ActivePane => _vm.LeftPane.IsActive ? _leftPane : _rightPane;
-    private ExplorerBrowserPane InactivePane => _vm.LeftPane.IsActive ? _rightPane : _leftPane;
+    private TabbedPaneControl ActivePane => _vm.LeftPane.IsActive ? _leftPane : _rightPane;
+    private TabbedPaneControl InactivePane => _vm.LeftPane.IsActive ? _rightPane : _leftPane;
 
     public MainForm(MainViewModel vm, IShellService shellService, IFileOperations fileOps)
     {
@@ -50,6 +50,9 @@ public sealed class MainForm : Form
 
         // File
         var fileMenu = new ToolStripMenuItem("&File");
+        fileMenu.DropDownItems.Add("New &Tab\tCtrl+T", null, (_, _) => ActivePane.AddTab(null));
+        fileMenu.DropDownItems.Add("&Close Tab\tCtrl+W", null, (_, _) => CloseActiveTab());
+        fileMenu.DropDownItems.Add(new ToolStripSeparator());
         fileMenu.DropDownItems.Add("New &Folder\tF7", null, (_, _) => _vm.CommandRegistry.Execute("file.newFolder"));
         fileMenu.DropDownItems.Add(new ToolStripSeparator());
         fileMenu.DropDownItems.Add("E&xit\tAlt+F4", null, (_, _) => Close());
@@ -130,8 +133,11 @@ public sealed class MainForm : Form
             SplitterDistance = 600,
         };
 
-        _leftPane = new ExplorerBrowserPane(homePath) { Dock = DockStyle.Fill };
-        _rightPane = new ExplorerBrowserPane(desktopPath) { Dock = DockStyle.Fill };
+        _leftPane = new TabbedPaneControl(_shellService) { Dock = DockStyle.Fill };
+        _rightPane = new TabbedPaneControl(_shellService) { Dock = DockStyle.Fill };
+
+        _leftPane.AddTab(homePath);
+        _rightPane.AddTab(desktopPath);
 
         _splitContainer.Panel1.Controls.Add(_leftPane);
         _splitContainer.Panel2.Controls.Add(_rightPane);
@@ -172,27 +178,25 @@ public sealed class MainForm : Form
 
     private void WireEvents()
     {
-        _addressBar.NavigationRequested += (_, path) => ActivePane.NavigateAsync(path);
+        _addressBar.NavigationRequested += (_, path) => ActivePane.NavigateActiveTab(path);
 
-        _leftPane.NavigationCompleted += (_, args) =>
+        _leftPane.NavigationCompleted += (_, path) =>
         {
             if (_vm.LeftPane.IsActive)
-                _addressBar.SetPath(args.Location);
-            _leftStatusBar.Update(0, 0, 0, args.Location.FullPath);
+                _addressBar.SetPath(path);
+            _leftStatusBar.Update(0, 0, 0, path.FullPath);
         };
 
-        _rightPane.NavigationCompleted += (_, args) =>
+        _rightPane.NavigationCompleted += (_, path) =>
         {
             if (_vm.RightPane.IsActive)
-                _addressBar.SetPath(args.Location);
-            _rightStatusBar.Update(0, 0, 0, args.Location.FullPath);
+                _addressBar.SetPath(path);
+            _rightStatusBar.Update(0, 0, 0, path.FullPath);
         };
 
         // Click in a pane to activate it
-        _leftPane.Enter += (_, _) => SetActive(PaneSide.Left);
-        _rightPane.Enter += (_, _) => SetActive(PaneSide.Right);
-        _leftPane.GotFocus += (_, _) => SetActive(PaneSide.Left);
-        _rightPane.GotFocus += (_, _) => SetActive(PaneSide.Right);
+        _leftPane.Activated += (_, _) => SetActive(PaneSide.Left);
+        _rightPane.Activated += (_, _) => SetActive(PaneSide.Right);
     }
 
     // MARK: - Pane management
@@ -215,8 +219,8 @@ public sealed class MainForm : Form
 
     private void UpdateActivePaneVisual()
     {
-        _leftPane.BorderStyle = _vm.LeftPane.IsActive ? BorderStyle.FixedSingle : BorderStyle.None;
-        _rightPane.BorderStyle = _vm.RightPane.IsActive ? BorderStyle.FixedSingle : BorderStyle.None;
+        _leftPane.IsActivePane = _vm.LeftPane.IsActive;
+        _rightPane.IsActivePane = _vm.RightPane.IsActive;
     }
 
     private void SetSplitMode(SplitMode mode)
@@ -256,21 +260,31 @@ public sealed class MainForm : Form
         }
     }
 
+    // MARK: - Tab management
+
+    private void CloseActiveTab()
+    {
+        var strip = ActivePane.TabStrip;
+        if (strip.ActiveIndex >= 0)
+        {
+            // TabClosed event will handle cleanup
+            strip.RemoveTab(strip.ActiveIndex);
+        }
+    }
+
     // MARK: - Cross-pane operations
 
     private void CopyToOtherPane()
     {
-        // The IExplorerBrowser selection would be read via IFolderView2 in production.
-        // For now, trigger the ViewModel which handles the operation.
         _vm.CopyToOtherPane();
-        InactivePane.Refresh();
+        InactivePane.RefreshActiveTab();
     }
 
     private void MoveToOtherPane()
     {
         _vm.MoveToOtherPane();
-        ActivePane.Refresh();
-        InactivePane.Refresh();
+        ActivePane.RefreshActiveTab();
+        InactivePane.RefreshActiveTab();
     }
 
     // MARK: - Navigation
@@ -281,7 +295,7 @@ public sealed class MainForm : Form
         if (tab?.Navigation.CanGoBack == true)
         {
             var target = tab.Navigation.GoBack();
-            ActivePane.NavigateAsync(target);
+            ActivePane.NavigateActiveTab(target);
         }
     }
 
@@ -291,7 +305,7 @@ public sealed class MainForm : Form
         if (tab?.Navigation.CanGoForward == true)
         {
             var target = tab.Navigation.GoForward();
-            ActivePane.NavigateAsync(target);
+            ActivePane.NavigateActiveTab(target);
         }
     }
 
@@ -299,12 +313,12 @@ public sealed class MainForm : Form
     {
         var parent = ActivePane.CurrentLocation.GetParent();
         if (parent is not null)
-            ActivePane.NavigateAsync(parent);
+            ActivePane.NavigateActiveTab(parent);
     }
 
     private void NavigateTo(SpecialFolder folder)
     {
-        ActivePane.NavigateAsync(_shellService.GetSpecialFolder(folder));
+        ActivePane.NavigateActiveTab(_shellService.GetSpecialFolder(folder));
     }
 
     // MARK: - Keyboard
@@ -322,6 +336,27 @@ public sealed class MainForm : Form
             case Keys.F6:
                 MoveToOtherPane();
                 return true;
+            case Keys.Control | Keys.T:
+                ActivePane.AddTab(null);
+                return true;
+            case Keys.Control | Keys.W:
+                CloseActiveTab();
+                return true;
+            case Keys.Control | Keys.Tab:
+                ActivePane.TabStrip.ActivateNext();
+                return true;
+            case Keys.Control | Keys.Shift | Keys.Tab:
+                ActivePane.TabStrip.ActivatePrevious();
+                return true;
+            case Keys.Control | Keys.D1: ActivePane.TabStrip.ActivateByNumber(1); return true;
+            case Keys.Control | Keys.D2: ActivePane.TabStrip.ActivateByNumber(2); return true;
+            case Keys.Control | Keys.D3: ActivePane.TabStrip.ActivateByNumber(3); return true;
+            case Keys.Control | Keys.D4: ActivePane.TabStrip.ActivateByNumber(4); return true;
+            case Keys.Control | Keys.D5: ActivePane.TabStrip.ActivateByNumber(5); return true;
+            case Keys.Control | Keys.D6: ActivePane.TabStrip.ActivateByNumber(6); return true;
+            case Keys.Control | Keys.D7: ActivePane.TabStrip.ActivateByNumber(7); return true;
+            case Keys.Control | Keys.D8: ActivePane.TabStrip.ActivateByNumber(8); return true;
+            case Keys.Control | Keys.D9: ActivePane.TabStrip.ActivateByNumber(9); return true;
             case Keys.Alt | Keys.Left:
                 GoBack();
                 return true;
@@ -339,7 +374,7 @@ public sealed class MainForm : Form
                 _addressBar.EnterEditMode();
                 return true;
             case Keys.Control | Keys.R:
-                ActivePane.Refresh();
+                ActivePane.RefreshActiveTab();
                 return true;
         }
 
