@@ -1,5 +1,6 @@
 using NoctusExplorer.Core.Models;
 using NoctusExplorer.UI.Contracts;
+using Vanara.Windows.Forms;
 using Vanara.Windows.Shell;
 
 namespace NoctusExplorer.UI.WinForms;

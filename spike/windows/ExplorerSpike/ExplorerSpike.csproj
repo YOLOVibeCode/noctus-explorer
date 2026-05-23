@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Vanara.Windows.Forms" Version="4.*" />
     <PackageReference Include="Vanara.Windows.Shell" Version="4.*" />
     <PackageReference Include="Vanara.PInvoke.Shell32" Version="4.*" />
   </ItemGroup>
