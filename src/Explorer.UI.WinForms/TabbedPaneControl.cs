@@ -43,6 +43,7 @@ public sealed class TabbedPaneControl : UserControl
 
     public TabStripControl TabStrip => _tabStrip;
 
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public bool IsActivePane
     {
         set
