@@ -13,6 +13,9 @@ obj/
 *.nupkg
 project.lock.json
 
+## Publish output
+publish/
+
 ## Build results
 [Dd]ebug/
 [Rr]elease/
