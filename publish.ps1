@@ -16,7 +16,9 @@ param(
     [string]$Runtime = "all",
 
     [ValidateSet("Debug", "Release")]
-    [string]$Configuration = "Release"
+    [string]$Configuration = "Release",
+
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,12 +31,15 @@ foreach ($rid in $runtimes) {
     $outDir = "$outputBase/$rid"
     Write-Host "`n=== Publishing for $rid ===" -ForegroundColor Cyan
 
+    $versionArg = if ($Version) { "-p:Version=$Version" } else { "" }
+
     dotnet publish $project `
         -c $Configuration `
         -r $rid `
         --self-contained true `
         -p:PublishSingleFile=true `
         -p:IncludeNativeLibrariesForSelfExtract=true `
+        $versionArg `
         -o $outDir
 
     if ($LASTEXITCODE -ne 0) {

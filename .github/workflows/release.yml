@@ -1,0 +1,153 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  # Extract version from tag
+  version:
+    name: Parse Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      prerelease: ${{ steps.parse.outputs.prerelease }}
+    steps:
+      - id: parse
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "version=$TAG" >> $GITHUB_OUTPUT
+          if [[ "$TAG" == *"-"* ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - run: dotnet test tests/Explorer.Core.Tests/Explorer.Core.Tests.csproj --verbosity normal
+
+  test-swift:
+    name: Swift Tests
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd macos && swift test
+
+  build-windows:
+    name: Windows ${{ matrix.rid }}
+    needs: [version, test]
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        rid: [win-x64, win-x86, win-arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Publish
+        run: |
+          dotnet publish src/Explorer.App/Explorer.App.csproj `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version=${{ needs.version.outputs.version }} `
+            -o publish/${{ matrix.rid }}
+
+      - name: Create ZIP
+        run: |
+          cd publish/${{ matrix.rid }}
+          Compress-Archive -Path NoctusExplorer.exe -DestinationPath ../NoctusExplorer-${{ needs.version.outputs.version }}-${{ matrix.rid }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoctusExplorer-${{ matrix.rid }}
+          path: publish/NoctusExplorer-${{ needs.version.outputs.version }}-${{ matrix.rid }}.zip
+
+  build-macos:
+    name: macOS arm64
+    needs: [version, test-swift]
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build release
+        run: cd macos && swift build -c release
+
+      - name: Create ZIP
+        run: |
+          cd macos/.build/release
+          zip -9 ../../../NoctusExplorer-${{ needs.version.outputs.version }}-macos-arm64.zip NoctusExplorer
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoctusExplorer-macos-arm64
+          path: NoctusExplorer-${{ needs.version.outputs.version }}-macos-arm64.zip
+
+  release:
+    name: Create GitHub Release
+    needs: [version, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^v${{ needs.version.outputs.version }}$" | head -1)
+          if [ -z "$PREV_TAG" ]; then
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+
+          echo "## What's Changed" > changelog.md
+          echo "" >> changelog.md
+          git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --no-merges >> changelog.md
+          echo "" >> changelog.md
+          echo "" >> changelog.md
+          echo "## Downloads" >> changelog.md
+          echo "" >> changelog.md
+          echo "| Platform | Architecture | File |" >> changelog.md
+          echo "|----------|-------------|------|" >> changelog.md
+          echo "| Windows | x64 (Intel/AMD) | \`NoctusExplorer-${{ needs.version.outputs.version }}-win-x64.zip\` |" >> changelog.md
+          echo "| Windows | x86 (32-bit) | \`NoctusExplorer-${{ needs.version.outputs.version }}-win-x86.zip\` |" >> changelog.md
+          echo "| Windows | ARM64 | \`NoctusExplorer-${{ needs.version.outputs.version }}-win-arm64.zip\` |" >> changelog.md
+          echo "| macOS | ARM64 (Apple Silicon) | \`NoctusExplorer-${{ needs.version.outputs.version }}-macos-arm64.zip\` |" >> changelog.md
+          echo "" >> changelog.md
+          echo "All Windows builds are self-contained single-file executables — no .NET runtime required." >> changelog.md
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: Noctus Explorer v${{ needs.version.outputs.version }}
+          body_path: changelog.md
+          prerelease: ${{ needs.version.outputs.prerelease }}
+          files: |
+            artifacts/NoctusExplorer-win-x64/*.zip
+            artifacts/NoctusExplorer-win-x86/*.zip
+            artifacts/NoctusExplorer-win-arm64/*.zip
+            artifacts/NoctusExplorer-macos-arm64/*.zip
