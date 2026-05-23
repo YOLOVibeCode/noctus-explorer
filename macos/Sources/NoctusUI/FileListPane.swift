@@ -19,6 +19,7 @@ public class FileListPane: NSViewController {
     // Callbacks
     var onNavigate: ((PathRef) -> Void)?
     var onSelectionChanged: (([FileEntry]) -> Void)?
+    var onActivated: (() -> Void)?
 
     var isActivePane: Bool = false {
         didSet {
@@ -256,6 +257,7 @@ extension FileListPane: NSOutlineViewDataSource, NSOutlineViewDelegate {
     }
 
     public func outlineViewSelectionDidChange(_ notification: Notification) {
+        if !isActivePane { onActivated?() }
         onSelectionChanged?(selectedEntries)
     }
 
