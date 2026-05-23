@@ -4,7 +4,7 @@ Throwaway project to prove that hosting the real Windows Explorer view via `IExp
 
 ## Build & Run
 
-Requires Windows 10+ with .NET 8 SDK installed.
+Requires Windows 10+ with [.NET 10 SDK](https://dotnet.microsoft.com/download) installed.
 
 ```
 cd spike/windows/ExplorerSpike
@@ -36,4 +36,4 @@ If any of the above don't work natively, document what's broken. The entire proj
 
 ## Architecture Note
 
-This spike uses `Vanara.Windows.Shell.ExplorerBrowser` which wraps the COM `IExplorerBrowser` interface. In the real app, this will be behind our `IPaneView` contract in `Explorer.UI.WinForms/ExplorerBrowserPane.cs`.
+This spike uses `Vanara.Windows.Forms.ExplorerBrowser` which wraps the COM `IExplorerBrowser` interface. In the real app, this is behind our `IPaneView` contract in `Explorer.UI.WinForms/ExplorerBrowserPane.cs`.
