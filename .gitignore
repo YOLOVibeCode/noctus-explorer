@@ -26,6 +26,10 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+## Swift Package Manager
+.build/
+.swiftpm/
+
 ## macOS
 .DS_Store
 *.xcodeproj/xcuserdata/
