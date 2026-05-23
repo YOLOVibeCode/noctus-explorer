@@ -1,0 +1,63 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-core:
+    name: Core Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - run: dotnet test tests/Explorer.Core.Tests/Explorer.Core.Tests.csproj --verbosity normal
+
+  test-swift:
+    name: Swift Core Tests
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd macos && swift test
+
+  build-windows:
+    name: Build Windows (${{ matrix.rid }})
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        rid: [win-x64, win-x86, win-arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - name: Publish
+        run: |
+          dotnet publish src/Explorer.App/Explorer.App.csproj `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o publish/${{ matrix.rid }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noctus-explorer-${{ matrix.rid }}
+          path: publish/${{ matrix.rid }}/NoctusExplorer.exe
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd macos && swift build -c release
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noctus-explorer-macos-arm64
+          path: macos/.build/release/NoctusExplorer
