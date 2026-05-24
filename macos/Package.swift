@@ -37,5 +37,10 @@ let package = Package(
             dependencies: ["NoctusCore"],
             path: "Tests/NoctusCoreTests"
         ),
+        .testTarget(
+            name: "NoctusShellAdapterTests",
+            dependencies: ["NoctusCore", "NoctusShellAdapter"],
+            path: "Tests/NoctusShellAdapterTests"
+        ),
     ]
 )
