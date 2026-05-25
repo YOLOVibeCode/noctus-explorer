@@ -29,6 +29,8 @@ static class Program
         services.AddSingleton<CustomActionEngine>();
         services.AddSingleton<DropStackService>();
         services.AddSingleton<OperationsQueue>();
+        services.AddSingleton<RecentLocationsService>();
+        services.AddSingleton<RecentFilesService>();
 
         // Shell adapter
         services.AddSingleton<IShellService, WinShellService>();
@@ -42,7 +44,10 @@ static class Program
         services.AddTransient<MainForm>(sp => new MainForm(
             sp.GetRequiredService<MainViewModel>(),
             sp.GetRequiredService<IShellService>(),
-            sp.GetRequiredService<IFileOperations>()
+            sp.GetRequiredService<IFileOperations>(),
+            sp.GetRequiredService<RecentLocationsService>(),
+            sp.GetRequiredService<RecentFilesService>(),
+            sp.GetRequiredService<SettingsStore>()
         ));
 
         var provider = services.BuildServiceProvider();

@@ -101,4 +101,43 @@ public class DropStackServiceTests
         stack.Clear();
         fired.Should().BeTrue();
     }
+
+    [Fact]
+    public void IsStale_NonexistentPath_ReturnsTrue()
+    {
+        var stack = new DropStackService();
+        stack.IsStale(new PathRef("/definitely/does/not/exist/xyz.txt")).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsStale_ExistingFile_ReturnsFalse()
+    {
+        var stack = new DropStackService();
+        var path = Path.Combine(Path.GetTempPath(), $"noctus_stale_{Guid.NewGuid()}.txt");
+        File.WriteAllText(path, "hello");
+        try
+        {
+            stack.IsStale(new PathRef(path)).Should().BeFalse();
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void IsStale_ExistingDirectory_ReturnsFalse()
+    {
+        var stack = new DropStackService();
+        var path = Path.Combine(Path.GetTempPath(), $"noctus_stale_dir_{Guid.NewGuid()}");
+        Directory.CreateDirectory(path);
+        try
+        {
+            stack.IsStale(new PathRef(path, isDirectory: true)).Should().BeFalse();
+        }
+        finally
+        {
+            Directory.Delete(path);
+        }
+    }
 }

@@ -91,7 +91,12 @@ public class MainViewModel : ReactiveObject
         var destination = InactivePane.ActiveTab?.Location;
         if (selection is null || selection.Count == 0 || destination is null) return;
 
-        var sources = selection.Select(e => e.Path).ToList();
+        CopyToOtherPane(selection.Select(e => e.Path).ToList(), destination);
+    }
+
+    public void CopyToOtherPane(IReadOnlyList<PathRef> sources, PathRef destination)
+    {
+        if (sources.Count == 0) return;
         var handle = _fileOps.Copy(sources, destination);
         OperationsQueue.Enqueue(handle);
     }
@@ -102,7 +107,12 @@ public class MainViewModel : ReactiveObject
         var destination = InactivePane.ActiveTab?.Location;
         if (selection is null || selection.Count == 0 || destination is null) return;
 
-        var sources = selection.Select(e => e.Path).ToList();
+        MoveToOtherPane(selection.Select(e => e.Path).ToList(), destination);
+    }
+
+    public void MoveToOtherPane(IReadOnlyList<PathRef> sources, PathRef destination)
+    {
+        if (sources.Count == 0) return;
         var handle = _fileOps.Move(sources, destination);
         OperationsQueue.Enqueue(handle);
     }

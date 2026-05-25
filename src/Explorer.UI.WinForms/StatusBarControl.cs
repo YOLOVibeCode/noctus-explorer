@@ -9,27 +9,27 @@ public sealed class StatusBarControl : UserControl
     private readonly Label _selectionLabel;
     private readonly Label _freeSpaceLabel;
 
+    private float _scale = 1f;
+
     public StatusBarControl()
     {
-        Height = 24;
+        Height = 26;
         Dock = DockStyle.Bottom;
         BackColor = SystemColors.Control;
-        Padding = new Padding(8, 0, 8, 0);
+        Padding = new Padding(10, 0, 10, 0);
 
         _itemCountLabel = new Label
         {
             AutoSize = true,
-            Location = new Point(8, 4),
-            Font = new Font("Segoe UI", 8.5f),
-            ForeColor = SystemColors.GrayText,
+            Font = new Font("Segoe UI", 9f),
+            ForeColor = SystemColors.ControlText,
             Text = "0 items",
         };
 
         _selectionLabel = new Label
         {
             AutoSize = true,
-            Location = new Point(120, 4),
-            Font = new Font("Segoe UI", 8.5f),
+            Font = new Font("Segoe UI", 9f),
             ForeColor = SystemColors.GrayText,
         };
 
@@ -37,7 +37,7 @@ public sealed class StatusBarControl : UserControl
         {
             AutoSize = true,
             Anchor = AnchorStyles.Right,
-            Font = new Font("Segoe UI", 8.5f),
+            Font = new Font("Segoe UI", 9f),
             ForeColor = SystemColors.GrayText,
         };
 
@@ -45,7 +45,14 @@ public sealed class StatusBarControl : UserControl
         Controls.Add(_selectionLabel);
         Controls.Add(_freeSpaceLabel);
 
-        Resize += (_, _) => LayoutFreeSpace();
+        Resize += (_, _) => LayoutLabels();
+    }
+
+    public void ApplyScale(float scale)
+    {
+        _scale = scale;
+        Padding = new Padding((int)(10 * scale), 0, (int)(10 * scale), 0);
+        LayoutLabels();
     }
 
     public void Update(int totalItems, int selectedCount, long selectedSize, string? drivePath)
@@ -69,12 +76,20 @@ public sealed class StatusBarControl : UserControl
             }
         }
 
-        LayoutFreeSpace();
+        LayoutLabels();
     }
 
-    private void LayoutFreeSpace()
+    private void LayoutLabels()
     {
-        _freeSpaceLabel.Location = new Point(Width - _freeSpaceLabel.Width - 12, 4);
+        // Vertically center all labels in the bar
+        var midY = Math.Max(0, (Height - _itemCountLabel.Height) / 2);
+        _itemCountLabel.Location = new Point((int)(12 * _scale), midY);
+        _selectionLabel.Location = new Point(
+            _itemCountLabel.Right + (int)(18 * _scale),
+            midY);
+        _freeSpaceLabel.Location = new Point(
+            Width - _freeSpaceLabel.Width - (int)(12 * _scale),
+            midY);
     }
 
     private static string FormatSize(long bytes) => bytes switch

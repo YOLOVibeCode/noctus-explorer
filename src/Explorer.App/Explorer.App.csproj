@@ -9,7 +9,7 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>NoctusExplorer</AssemblyName>
     <Product>Noctus Explorer</Product>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
   </PropertyGroup>
 
   <!-- Single-file self-contained publish settings -->

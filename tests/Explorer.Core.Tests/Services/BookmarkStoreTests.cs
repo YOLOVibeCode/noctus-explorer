@@ -77,4 +77,41 @@ public class BookmarkStoreTests
         store.Remove(id);
         fired.Should().BeTrue();
     }
+
+    [Fact]
+    public void ToJson_LoadFromJson_RoundTrips()
+    {
+        var a = new BookmarkStore();
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        a.Add(new Bookmark(id1, "Home", new PathRef("/home"), null, 0));
+        a.Add(new Bookmark(id2, "Server", new PathRef("//srv/share"), "Servers", 1));
+
+        var json = a.ToJson();
+
+        var b = new BookmarkStore();
+        b.LoadFromJson(json);
+
+        b.Bookmarks.Should().HaveCount(2);
+        b.Bookmarks[0].Id.Should().Be(id1);
+        b.Bookmarks[0].Name.Should().Be("Home");
+        b.Bookmarks[1].Group.Should().Be("Servers");
+    }
+
+    [Fact]
+    public void LoadFromJson_EmptyString_NoChange()
+    {
+        var store = new BookmarkStore();
+        store.Add(new Bookmark(Guid.NewGuid(), "Home", new PathRef("/h"), null, 0));
+        store.LoadFromJson("");
+        store.Bookmarks.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void LoadFromJson_Garbage_DoesNotThrow()
+    {
+        var store = new BookmarkStore();
+        var act = () => store.LoadFromJson("not json at all {");
+        act.Should().NotThrow();
+    }
 }

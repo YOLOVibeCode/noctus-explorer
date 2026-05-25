@@ -20,6 +20,26 @@ public sealed class TabStripControl : UserControl
     public int ActiveIndex => _activeIndex;
     public int TabCount => _tabs.Count;
 
+    private float _scale = 1f;
+
+    /// <summary>Scale tab button heights/widths by DPI factor.</summary>
+    public void ApplyScale(float scale)
+    {
+        _scale = scale;
+        var btnH = (int)(24 * scale);
+        _newTabButton.Height = btnH;
+        _newTabButton.Width = (int)(28 * scale);
+        foreach (var tab in _tabs)
+        {
+            if (tab.Button is { } b)
+            {
+                b.Height = btnH;
+                b.MinimumSize = new Size((int)(90 * scale), btnH);
+                b.MaximumSize = new Size((int)(220 * scale), btnH);
+            }
+        }
+    }
+
     public TabStripControl()
     {
         Height = 28;
@@ -137,15 +157,16 @@ public sealed class TabStripControl : UserControl
 
     private Button CreateTabButton(TabInfo tab)
     {
+        var h = (int)(24 * _scale);
         var btn = new Button
         {
             Text = tab.Title.Length > 20 ? tab.Title[..17] + "…  ✕" : tab.Title + "  ✕",
-            Height = 22,
+            Height = h,
             AutoSize = true,
-            MinimumSize = new Size(80, 22),
-            MaximumSize = new Size(200, 22),
+            MinimumSize = new Size((int)(90 * _scale), h),
+            MaximumSize = new Size((int)(220 * _scale), h),
             FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 8.5f),
+            Font = new Font("Segoe UI", 9f),
             TextAlign = ContentAlignment.MiddleLeft,
             Cursor = Cursors.Hand,
             Padding = new Padding(4, 0, 4, 0),

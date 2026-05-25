@@ -89,6 +89,84 @@ public class MainViewModelTests
     }
 
     [Fact]
+    public void CopyToOtherPane_WithExplicitSources_EnqueuesOperation()
+    {
+        var vm = CreateMain();
+        var sources = new List<PathRef> { new("/src/file.txt") };
+        var destination = new PathRef("/dest", isDirectory: true);
+
+        vm.CopyToOtherPane(sources, destination);
+
+        vm.OperationsQueue.Operations.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void CopyToOtherPane_WithExplicitSources_CallsFileOpsCopy()
+    {
+        var shell = Substitute.For<IShellService>();
+        var fileOps = Substitute.For<IFileOperations>();
+        var watcher = Substitute.For<IFileWatcher>();
+        shell.GetSpecialFolder(SpecialFolder.Home).Returns(new PathRef("/home", isDirectory: true));
+        shell.GetDisplayName(Arg.Any<PathRef>()).Returns(ci => ci.Arg<PathRef>().DisplayName);
+        var handle = Substitute.For<IOperationHandle>();
+        handle.Id.Returns(Guid.NewGuid());
+        fileOps.Copy(Arg.Any<IReadOnlyList<PathRef>>(), Arg.Any<PathRef>()).Returns(handle);
+
+        var vm = new MainViewModel(shell, fileOps, watcher,
+            new SettingsStore(), new CommandRegistry(), new KeyBindingResolver(),
+            new BookmarkStore(), new CustomActionStore(),
+            new DropStackService(), new OperationsQueue());
+
+        var sources = new List<PathRef> { new("/src/file.txt") };
+        var destination = new PathRef("/dest", isDirectory: true);
+
+        vm.CopyToOtherPane(sources, destination);
+
+        fileOps.Received(1).Copy(sources, destination);
+    }
+
+    [Fact]
+    public void CopyToOtherPane_WithEmptySources_DoesNotEnqueue()
+    {
+        var vm = CreateMain();
+        vm.CopyToOtherPane([], new PathRef("/dest", isDirectory: true));
+        vm.OperationsQueue.Operations.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void MoveToOtherPane_WithExplicitSources_CallsFileOpsMove()
+    {
+        var shell = Substitute.For<IShellService>();
+        var fileOps = Substitute.For<IFileOperations>();
+        var watcher = Substitute.For<IFileWatcher>();
+        shell.GetSpecialFolder(SpecialFolder.Home).Returns(new PathRef("/home", isDirectory: true));
+        shell.GetDisplayName(Arg.Any<PathRef>()).Returns(ci => ci.Arg<PathRef>().DisplayName);
+        var handle = Substitute.For<IOperationHandle>();
+        handle.Id.Returns(Guid.NewGuid());
+        fileOps.Move(Arg.Any<IReadOnlyList<PathRef>>(), Arg.Any<PathRef>()).Returns(handle);
+
+        var vm = new MainViewModel(shell, fileOps, watcher,
+            new SettingsStore(), new CommandRegistry(), new KeyBindingResolver(),
+            new BookmarkStore(), new CustomActionStore(),
+            new DropStackService(), new OperationsQueue());
+
+        var sources = new List<PathRef> { new("/src/file.txt") };
+        var destination = new PathRef("/dest", isDirectory: true);
+
+        vm.MoveToOtherPane(sources, destination);
+
+        fileOps.Received(1).Move(sources, destination);
+    }
+
+    [Fact]
+    public void MoveToOtherPane_WithEmptySources_DoesNotEnqueue()
+    {
+        var vm = CreateMain();
+        vm.MoveToOtherPane([], new PathRef("/dest", isDirectory: true));
+        vm.OperationsQueue.Operations.Should().BeEmpty();
+    }
+
+    [Fact]
     public void SaveAndRestoreSession_PersistsSplitMode()
     {
         var vm = CreateMain();

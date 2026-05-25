@@ -36,4 +36,11 @@ public sealed class DropStackService
         _items.Clear();
         ItemsChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// Returns true if the referenced path no longer exists on disk.
+    /// Used by the UI to render stale indicators on stack items.
+    /// </summary>
+    public bool IsStale(PathRef item)
+        => !File.Exists(item.FullPath) && !Directory.Exists(item.FullPath);
 }
